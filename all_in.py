@@ -5,7 +5,8 @@ import tensorflow as tf
 #sick_path = '/Users/igorpetrovski/Desktop/ETH/MasterThesis/skip_thoughts_data/data/sick_train/SICK_train.txt'
 #sick_path = '/Users/igorpetrovski/Desktop/ETH/MasterThesis/datasets/SICK/SICK.txt'
 #snli_path = '/Users/igorpetrovski/Desktop/ETH/MasterThesis/datasets/snli_1.0/snli_1.0_train.txt'
-snli_path = '/datasets/snli/train.txt'
+snli_train_path = '/datasets/snli/train.txt'
+snli_test_path = '/datasets/snli/test.txt'
 counter = 0
 
 batch_size = 32
@@ -13,6 +14,8 @@ num_classes = 3
 vocabulary_size = 0
 embedding_dim = 128
 max_sent_length = -1
+
+PADDING_SYMBOL = 0
 
 w2id = {}
 curr_word_id = 0
@@ -37,19 +40,24 @@ def get_ids(sent):
 
 	return sent_ids
 
-def get_data(file_path):
+def get_data(training_file_path, test_file_path):
 
 	global max_sent_length
 
-	data = []
 	counter = 0 
 
+	train_x_1 = []
+	train_x_2 = []
+	train_len_x_1 = []
+	train_len_x_2 = []
+	train_y = []
 
-	x_1 = []
-	x_2 = []
-	len_x_1 = []
-	len_x_2 = []
-	y = []
+	test_x_1 = []
+	test_x_2 = []
+	test_len_x_1 = []
+	test_len_x_2 = []
+	test_y = []
+
 
 	text_to_class = {	'CONTRADICTION': 0,
 						'ENTAILMENT': 1,
@@ -59,14 +67,11 @@ def get_data(file_path):
 						'NEUTRAL'.lower(): 2
 					}
 
-	for line in open(file_path, 'r'):
+	for line in open(training_file_path, 'r'):
 		counter += 1
 		#if counter == 1: continue
 
 		parts = line.strip().split('\t')
-
-
-		#print '5: %s\n6: %s\n0: %s\n=============' % (parts[6], parts[5], parts[0])
 
 		sent1 = parts[1]
 		sent2 = parts[2]
@@ -79,29 +84,59 @@ def get_data(file_path):
 		sent1_ids = get_ids(sent1)
 		sent2_ids = get_ids(sent2)
 
-		x_1.append(sent1_ids)
-		x_2.append(sent2_ids)
-		len_x_1.append(len(sent1_ids))
-		len_x_2.append(len(sent2_ids))
-		y.append(judgement)
+		train_x_1.append(sent1_ids)
+		train_x_2.append(sent2_ids)
+		train_len_x_1.append(len(sent1_ids))
+		train_len_x_2.append(len(sent2_ids))
+		train_y.append(judgement)
 
+	counter = 0 
 
-	max_len = max(max(len_x_1), max(len_x_2))
+	for line in open(test_file_path, 'r'):
+		counter += 1
+		#if counter == 1: continue
 
+		parts = line.strip().split('\t')
 
-	for i in xrange(len(x_1)):
-		while len(x_1[i]) < max_len:
-			x_1[i].append(0)
-		while len(x_2[i]) < max_len:
-			x_2[i].append(0)
+		sent1 = parts[1]
+		sent2 = parts[2]
+
+		if parts[0] not in text_to_class:
+			continue
+
+		judgement = text_to_class[parts[0]]
+
+		sent1_ids = get_ids(sent1)
+		sent2_ids = get_ids(sent2)
+
+		test_x_1.append(sent1_ids)
+		test_x_2.append(sent2_ids)
+		test_len_x_1.append(len(sent1_ids))
+		test_len_x_2.append(len(sent2_ids))
+		test_y.append(judgement)
+
+	max_len = max([max(train_len_x_1), max(train_len_x_2), max(test_len_x_1), max(test_len_x_2)])
+
+	for i in xrange(len(train_x_1)):
+		while len(train_x_1[i]) < max_len:
+			train_x_1[i].append(PADDING_SYMBOL)
+		while len(train_x_2[i]) < max_len:
+			train_x_2[i].append(PADDING_SYMBOL)
+
+	for i in xrange(len(test_x_1)):
+		while len(test_x_1[i]) < max_len:
+			test_x_1[i].append(PADDING_SYMBOL)
+		while len(test_x_2[i]) < max_len:
+			test_x_2[i].append(PADDING_SYMBOL)
 
 
 	print 'Maximum sentence length: %d' % max_len
-	print 'Number of samples: %d' % (len(x_1))
-	#exit()
+	print 'Number of training samples: %d' % (len(train_x_1))
+	print 'Number of test samples: %d' % (len(test_x_1))
 
 	max_sent_length = max_len
-	return np.array(x_1), np.array(x_2), len_x_1, len_x_2, y
+
+	return np.array(train_x_1), np.array(train_x_2), train_len_x_1, train_len_x_2, train_y, np.array(test_x_1), np.array(test_x_2), test_len_x_1, test_len_x_2, test_y
 
 def get_sentence_representation(embeddings, train_inputs, mask):
 	lookup_op = tf.nn.embedding_lookup(embeddings, train_inputs) # TESTED
@@ -180,16 +215,23 @@ def train_test_split(X_1, X_2, y_transformed, mask_1, mask_2, N, train_test_rati
 
 def train():
 
-	X_1, X_2, len_x_1, len_x_2, y = get_data(snli_path)
+	X_1, X_2, len_x_1, len_x_2, y, X_1_test, X_2_test, len_x_1_test, len_x_2_test, y_test = get_data(training_file_path = snli_train_path, test_file_path = snli_test_path)
 
-	N = len(X_1)
+	N_train = len(X_1)
 
-	assert N == len(X_2) and N == len(len_x_1) and N == len(len_x_2) and N == len(y)
+	assert N_train == len(X_2) and N_train == len(len_x_1) and N_train == len(len_x_2) and N_train == len(y)
+
+	N_test = len(X_1_test)
+
+	assert N_test == len(X_2_test) and N_test == len(len_x_1_test) and N_test == len(len_x_2_test) and N_test == len(y_test)
+
 
 	
 	y_transformed = np.zeros((len(y), num_classes))
-
 	y_transformed[np.arange(len(y)), y] = 1
+
+	y_transformed_test = np.zeros((len(y_test), num_classes))
+	y_transformed_test[np.arange(len(y_test)), y_test] = 1
 
 	tensor_len_x_1 = tf.placeholder(tf.int32, shape = [None])
 	tensor_len_x_2 = tf.placeholder(tf.int32, shape = [None])
@@ -224,7 +266,7 @@ def train():
 		mask2_instance = sess.run(mask_2, feed_dict = {
 			tensor_len_x_2: len_x_2
 		})
-		X_1, X_2, y_transformed, mask_1_instance, mask_2_instance, X_1_test, X_2_test, y_transformed_test, mask_1_test, mask_2_test = train_test_split(np.array(X_1), np.array(X_2), np.array(y_transformed), np.array(mask1_instance), np.array(mask2_instance), N, 0.9)
+		#X_1, X_2, y_transformed, mask_1_instance, mask_2_instance, X_1_test, X_2_test, y_transformed_test, mask_1_test, mask_2_test = train_test_split(np.array(X_1), np.array(X_2), np.array(y_transformed), np.array(mask1_instance), np.array(mask2_instance), N, 0.9)
 
 
 		print 'X_1_test shape: ', X_1_test.shape
@@ -235,7 +277,7 @@ def train():
 		avg_loss = 0.0
 
 		i = 0
-		for epoch in xrange(1000):
+		for epoch in xrange(100):
 			ind = 0
 			print 'Epoch: %d' % epoch
 			while ind < len(X_1):
@@ -266,17 +308,17 @@ def train():
 				})
 				avg_loss += curr_loss
 
-				if ind % 1000 == 0 and i > 0:
-					print '\tIteration: %i Average loss: %.2f' % (ind, avg_loss / i)
-
-					print 'Accuracy: %.2f' % (sess.run(accuracy, feed_dict = {
+				if ind % 10000 == 0 and i > 0:
+					accuracy_instance = sess.run(accuracy, feed_dict = {
 						train_inputs_1: X_1_test,
 						train_inputs_2: X_2_test, 
 						train_mask_inputs_1: mask_1_test,
 						train_mask_inputs_2: mask_2_test,
 						y_true: y_transformed_test, 
 						keep_prob: 1.0
-					}))
+					})
+
+					print '\tIteration: %i Average loss: %.2f Accuracy: %.2f' % (ind, avg_loss / i, accuracy_instance)
 
 				ind += batch_size
 	
