@@ -266,14 +266,20 @@ def train():
 		mask2_instance = sess.run(mask_2, feed_dict = {
 			tensor_len_x_2: len_x_2
 		})
+		
+		mask_1_instance_test, mask_2_instance_test = sess.run([mask_1,mask_2], feed_dict = {
+			tensor_len_x_1: len_x_1_test,
+			tensor_len_x_2: len_x_2_test
+		})
+		
 		#X_1, X_2, y_transformed, mask_1_instance, mask_2_instance, X_1_test, X_2_test, y_transformed_test, mask_1_test, mask_2_test = train_test_split(np.array(X_1), np.array(X_2), np.array(y_transformed), np.array(mask1_instance), np.array(mask2_instance), N, 0.9)
 
 
 		print 'X_1_test shape: ', X_1_test.shape
 		print 'X_2_test shape: ', X_2_test.shape
 		print 'y_transformed_test shape: ', y_transformed_test.shape
-		print 'mask_1_test shape:', mask_1_test.shape
-		print 'mask_2_test shape:', mask_2_test.shape
+		print 'mask_1_instance_test shape:', mask_1_instance_test.shape
+		print 'mask_2_instance_test shape:', mask_2_instance_test.shape
 		avg_loss = 0.0
 
 		i = 0
@@ -312,8 +318,8 @@ def train():
 					accuracy_instance = sess.run(accuracy, feed_dict = {
 						train_inputs_1: X_1_test,
 						train_inputs_2: X_2_test, 
-						train_mask_inputs_1: mask_1_test,
-						train_mask_inputs_2: mask_2_test,
+						train_mask_inputs_1: mask_1_instance_test,
+						train_mask_inputs_2: mask_2_instance_test,
 						y_true: y_transformed_test, 
 						keep_prob: 1.0
 					})
