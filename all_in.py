@@ -4,11 +4,11 @@ import tensorflow as tf
 
 #sick_path = '/Users/igorpetrovski/Desktop/ETH/MasterThesis/skip_thoughts_data/data/sick_train/SICK_train.txt'
 #sick_path = '/Users/igorpetrovski/Desktop/ETH/MasterThesis/datasets/SICK/SICK.txt'
-snli_path = '/Users/igorpetrovski/Desktop/ETH/MasterThesis/datasets/snli_1.0/snli_1.0_train.txt'
-
+#snli_path = '/Users/igorpetrovski/Desktop/ETH/MasterThesis/datasets/snli_1.0/snli_1.0_train.txt'
+snli_path = '/datasets/snli/train.txt'
 counter = 0
 
-batch_size = 64
+batch_size = 32
 num_classes = 3
 vocabulary_size = 0
 embedding_dim = 128
@@ -61,15 +61,15 @@ def get_data(file_path):
 
 	for line in open(file_path, 'r'):
 		counter += 1
-		if counter == 1: continue
+		#if counter == 1: continue
 
 		parts = line.strip().split('\t')
 
 
 		#print '5: %s\n6: %s\n0: %s\n=============' % (parts[6], parts[5], parts[0])
 
-		sent1 = parts[5]
-		sent2 = parts[6]
+		sent1 = parts[1]
+		sent2 = parts[2]
 
 		if parts[0] not in text_to_class:
 			continue
@@ -224,7 +224,7 @@ def train():
 		mask2_instance = sess.run(mask_2, feed_dict = {
 			tensor_len_x_2: len_x_2
 		})
-		X_1, X_2, y_transformed, mask_1_instance, mask_2_instance, X_1_test, X_2_test, y_transformed_test, mask_1_test, mask_2_test = train_test_split(np.array(X_1), np.array(X_2), np.array(y_transformed), np.array(mask1_instance), np.array(mask2_instance), N, 0.8)
+		X_1, X_2, y_transformed, mask_1_instance, mask_2_instance, X_1_test, X_2_test, y_transformed_test, mask_1_test, mask_2_test = train_test_split(np.array(X_1), np.array(X_2), np.array(y_transformed), np.array(mask1_instance), np.array(mask2_instance), N, 0.9)
 
 
 		print 'X_1_test shape: ', X_1_test.shape
@@ -282,33 +282,3 @@ def train():
 	
 
 train()
-"""
-first_sent = tf.placeholder(tf.float32)
-second_sent = tf.placeholder(tf.float32)
-
-component_1 = tf.abs(first_sent - second_sent)
-component_2 = tf.multiply(first_sent, second_sent)
-component_3 = tf.concat([first_sent, second_sent], axis = 1)
-input_representation = tf.concat([component_1, component_2, component_3], axis = 1)
-
-with tf.Session() as sess:
-
-	result = sess.run(input_representation, feed_dict = {
-		first_sent: [[1,2,3],
-					[4,5,6],
-					[7,8,9],
-					[10,11,12]
-					],
-		second_sent: [[100,200,300],
-					 [400,500,600],
-					 [700,800,900],
-					 [1000,1100,1200]
-					]
-	})
-
-	print result
-
-	print 'Result shape: ', result.shape
-"""
-
-
