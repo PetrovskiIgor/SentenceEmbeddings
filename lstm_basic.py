@@ -2,11 +2,11 @@ import numpy
 import tensorflow as tf
 import math
 import random
+import numpy as np
+import preprocess
 from preprocess import get_data
 from preprocess import get_ids
-from preprocess import max_sent_length
-from preprocess import vocabulary_size
-
+from preprocess import PADDING_SYMBOL
 batch_size = 32
 max_len = 30
 embedding_dim = 128
@@ -15,12 +15,20 @@ num_classes = 3
 hidden_state_dim = 256
 snli_train_path = '/datasets/snli/train.txt'
 snli_test_path = '/datasets/snli/test.txt'
-
+vocabulary_size = -1
+max_sent_length = -1
 
 def encode_sentence(inputs,sequence_length, num_units=128):
-	lstm_cell = tf.contrib.rnn.BasicLSTMCell(num_units)
+	#lstm_cell = tf.contrib.rnn.BasicLSTMCell(num_units)
+	rnn_layers = [tf.contrib.rnn.BasicLSTMCell(num_units) for size in [128, 256]]
+	lstm_cell = tf.contrib.rnn.MultiRNNCell(rnn_layers)
 	outputs, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = inputs, dtype = tf.float32, sequence_length = sequence_length)
-	return state
+
+	print 'outputs:'
+	print outputs
+	print 'state:'
+	print state
+	return state[-1]
 
 def build_model(inputs_1, inputs_2, seq_len_1, seq_len_2, labels, keep_prob = 0.5, fc_layers_dim = [512]):
 	embeddings = tf.Variable(tf.random_uniform(shape = [vocabulary_size, embedding_dim], minval=-1.0, maxval=1.0))
@@ -56,9 +64,15 @@ def build_model(inputs_1, inputs_2, seq_len_1, seq_len_2, labels, keep_prob = 0.
 	return train_step, loss, logits
 
 def train():
-
-	max_sent_length,X_1, X_2, len_x_1, len_x_2, y, X_1_test, X_2_test, len_x_1_test, len_x_2_test, y_test = get_data(training_file_path = snli_train_path, test_file_path = snli_test_path)
-
+	global vocabulary_size
+	global max_sent_length
+	print 'Vocabulary size prior: %d' % vocabulary_size
+	X_1, X_2, len_x_1, len_x_2, y, X_1_test, X_2_test, len_x_1_test, len_x_2_test, y_test = get_data(training_file_path = snli_train_path, test_file_path = snli_test_path)
+	
+	vocabulary_size = preprocess.vocabulary_size
+	max_sent_length = preprocess.max_sent_length
+	print 'Vocabulary size posterior: %d' % vocabulary_size
+	print 'Max sent length: %d' % max_sent_length
 	N_train = len(X_1)
 	N_test = len(X_1_test)
 
@@ -77,16 +91,16 @@ def train():
 	train_inputs_1 = tf.placeholder(tf.int32, shape = [None, max_sent_length])
 	train_inputs_2 = tf.placeholder(tf.int32, shape = [None, max_sent_length])
 	train_outputs = tf.placeholder(tf.float32, shape = [None, num_classes])
-	"""
+	
 	keep_prob = tf.placeholder(tf.float32, name = 'Dropout')
 
-	train_step, loss, predicted = build_model(train_inputs_1, train_inputs_2, train_mask_inputs_reshaped_1, train_mask_inputs_reshaped_2, train_outputs, keep_prob)
+	train_step, loss, predicted = build_model(inputs_1 = train_inputs_1, inputs_2 = train_inputs_2, seq_len_1 = tensor_len_x_1, seq_len_2 = tensor_len_x_2, labels = train_outputs)
 	
 	y_true = tf.placeholder(tf.float32, shape = [None, num_classes])
 	accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(predicted, axis = 1), tf.argmax(y_true, axis = 1)), tf.float32))
 
 	print 'Vocabulary size: %d' % vocabulary_size
-
+	
 	with tf.Session() as sess:
 
 		sess.run(tf.global_variables_initializer())
@@ -101,24 +115,23 @@ def train():
 				max_ind = min(ind + batch_size, len(X_1))
 				batch_x_1 = X_1[ind:max_ind]
 				batch_x_2 = X_2[ind:max_ind]
-				batch_x_len_1 = mask1_instance[ind:max_ind]
-				batch_x_len_2 = mask2_instance[ind:max_ind]
+				batch_x_len_1 = len_x_1[ind:max_ind]
+				batch_x_len_2 = len_x_2[ind:max_ind]
 				batch_y = y_transformed[ind:max_ind]
 
 				if max_ind == len(X_1):
 					batch_x_1 = np.vstack((batch_x_1,X_1[:batch_size - len(batch_x_1)]))
-
 					batch_x_2 = np.vstack((batch_x_2,X_2[:batch_size - len(batch_x_2)]))
-					batch_x_len_1 = np.vstack((batch_x_len_1,mask1_instance[:batch_size - len(batch_x_len_1)]))
-					batch_x_len_2 = np.vstack((batch_x_len_2,mask2_instance[:batch_size - len(batch_x_len_2)]))
+					batch_x_len_1 = np.hstack((batch_x_len_1,len_x_1[:batch_size - len(batch_x_len_1)]))
+					batch_x_len_2 = np.hstack((batch_x_len_2,len_x_2[:batch_size - len(batch_x_len_2)]))
 					batch_y = np.vstack((batch_y,y_transformed[:batch_size - len(batch_y)]))
-
+					
 				_, curr_loss = sess.run([train_step, loss], feed_dict = {
 					train_outputs: batch_y,
 					train_inputs_1: batch_x_1,
 					train_inputs_2: batch_x_2, 
-					train_mask_inputs_1: batch_x_len_1,
-					train_mask_inputs_2: batch_x_len_2, 
+					tensor_len_x_1: batch_x_len_1,
+					tensor_len_x_2: batch_x_len_2, 
 					keep_prob: 0.5
 					
 				})
@@ -127,9 +140,9 @@ def train():
 				if ind % 10000 == 0 and i > 0:
 					accuracy_instance = sess.run(accuracy, feed_dict = {
 						train_inputs_1: X_1_test,
-						train_inputs_2: X_2_test, 
-						train_mask_inputs_1: mask_1_test,
-						train_mask_inputs_2: mask_2_test,
+						train_inputs_2: X_2_test,
+						tensor_len_x_1: len_x_1_test, 
+						tensor_len_x_2: len_x_2_test,
 						y_true: y_transformed_test, 
 						keep_prob: 1.0
 					})
@@ -137,7 +150,7 @@ def train():
 					print '\tIteration: %i Average loss: %.2f Accuracy: %.2f' % (ind, avg_loss / i, accuracy_instance)
 
 				ind += batch_size
-	"""
+	
 
 train()
 """

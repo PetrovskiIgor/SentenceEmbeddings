@@ -10,8 +10,8 @@ snli_test_path = '/datasets/snli/test.txt'
 
 batch_size = 32
 num_classes = 3
-vocabulary_size = 10000
-embedding_dim = 128
+vocabulary_size = 0
+embedding_dim = 256
 max_sent_length = -1
 
 PADDING_SYMBOL = 0
@@ -163,7 +163,7 @@ def get_sentence_representation(embeddings, train_inputs, mask):
 
 	return sentence_representation
 
-def build_model(train_inputs_1, train_inputs_2, mask_1, mask_2, train_outputs, keep_prob, layers_dim=[512]):
+def build_model(train_inputs_1, train_inputs_2, mask_1, mask_2, train_outputs, keep_prob, layers_dim=[2 * 2 * embedding_dim]):
 
 	embeddings = tf.Variable(tf.random_uniform(shape = [vocabulary_size, embedding_dim], minval=-1.0, maxval=1.0))
 

@@ -6,6 +6,7 @@ w2id = {}
 curr_word_id = 1
 w2id['<UNK>'] = 0
 vocabulary_size = 1
+PADDING_SYMBOL = 0
 
 def get_ids(sent):
 
@@ -121,8 +122,8 @@ def get_data(training_file_path, test_file_path):
 	print 'Maximum sentence length: %d' % max_len
 	print 'Number of training samples: %d' % (len(train_x_1))
 	print 'Number of test samples: %d' % (len(test_x_1))
-
+	print 'Vocabulary size: %d' % vocabulary_size
 	max_sent_length = max_len
 
-	return np.array(train_x_1), np.array(train_x_2), train_len_x_1, train_len_x_2, train_y, np.array(test_x_1), np.array(test_x_2), test_len_x_1, test_len_x_2, test_y
+	return np.array(train_x_1), np.array(train_x_2), np.array(train_len_x_1), np.array(train_len_x_2), np.array(train_y), np.array(test_x_1), np.array(test_x_2), np.array(test_len_x_1), np.array(test_len_x_2), np.array(test_y)
 
