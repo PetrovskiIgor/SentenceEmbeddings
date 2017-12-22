@@ -7,11 +7,10 @@ import tensorflow as tf
 #snli_path = '/Users/igorpetrovski/Desktop/ETH/MasterThesis/datasets/snli_1.0/snli_1.0_train.txt'
 snli_train_path = '/datasets/snli/train.txt'
 snli_test_path = '/datasets/snli/test.txt'
-counter = 0
 
 batch_size = 32
 num_classes = 3
-vocabulary_size = 0
+vocabulary_size = 10000
 embedding_dim = 128
 max_sent_length = -1
 
